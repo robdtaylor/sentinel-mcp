@@ -82,6 +82,19 @@ export interface ScanSummary {
 }
 
 // ============================================================================
+// Baseline / Diff
+// ============================================================================
+
+export interface BaselineDiff {
+  newFindings: Finding[];
+  fixedFindings: Finding[];
+  unchangedFindings: Finding[];
+  baselineTimestamp: string;
+  baselineScore: number;
+  scoreDelta: number; // current - baseline (positive = improved)
+}
+
+// ============================================================================
 // Scanner Interface
 // ============================================================================
 

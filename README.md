@@ -28,6 +28,15 @@ npx mcpsec scan --path ~/.cursor/mcp.json
 
 # JSON output for CI/CD pipelines
 npx mcpsec scan --json
+
+# Save scan as baseline for future comparison
+npx mcpsec scan --save-baseline
+
+# Compare current scan against baseline
+npx mcpsec scan --baseline
+
+# Baseline diff as JSON (for CI/CD)
+npx mcpsec scan --baseline --json
 ```
 
 > Requires [Bun](https://bun.sh) runtime (`curl -fsSL https://bun.sh/install | bash`)
@@ -221,13 +230,15 @@ You can also run the CLI directly:
 mcpsec scan [options]
 
 Options:
-  --live          Connect to running MCP servers and scan live
-  --json          Output results as JSON
-  --sarif         Output results as SARIF 2.1.0 (for GitHub Code Scanning)
-  --path <file>   Scan a specific config file
-  --no-color      Disable colored output
-  --help, -h      Show help
-  --version, -v   Show version
+  --live                   Connect to running MCP servers and scan live
+  --json                   Output results as JSON
+  --sarif                  Output results as SARIF 2.1.0 (for GitHub Code Scanning)
+  --path <file>            Scan a specific config file
+  --save-baseline [file]   Save scan results as baseline (default: .mcpsec-baseline.json)
+  --baseline [file]        Compare scan against baseline and show diff
+  --no-color               Disable colored output
+  --help, -h               Show help
+  --version, -v            Show version
 ```
 
 ## Development
@@ -238,7 +249,7 @@ git clone https://github.com/robdtaylor/sentinel-mcp.git
 cd sentinel-mcp
 bun install
 
-# Run tests (64 tests)
+# Run tests
 bun test
 
 # Type check
@@ -265,6 +276,7 @@ src/
     live-scanner.ts         Live server tool/resource/prompt analysis
     report.ts               Score calculation and report output
     sarif.ts                SARIF 2.1.0 output for GitHub Code Scanning
+    baseline.ts             Baseline save/load and diff engine
 ```
 
 ## Roadmap
@@ -272,7 +284,7 @@ src/
 - [x] Cross-server tool shadowing detection
 - [x] GitHub Actions action (`uses: robdtaylor/sentinel-mcp@v1`)
 - [ ] MCP server registry scanning
-- [ ] Baseline / diff mode (track changes between scans)
+- [x] Baseline / diff mode (track changes between scans)
 - [x] SARIF output format (`--sarif` for GitHub Code Scanning)
 
 ## License

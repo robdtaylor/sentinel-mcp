@@ -15,6 +15,13 @@ import { toolScanner } from '../scanner/tool-scanner';
 import { liveScanner } from '../scanner/live-scanner';
 import { generateReport, printReport, printReportJSON } from '../scanner/report';
 import { printReportSARIF } from '../scanner/sarif';
+import {
+  loadBaseline,
+  saveBaseline,
+  diffFindings,
+  printBaselineDiff,
+  DEFAULT_BASELINE_PATH,
+} from '../scanner/baseline';
 import type { Finding, MCPConfigFile } from '../lib/types';
 
 // ============================================================================
@@ -28,19 +35,24 @@ const HELP = `
     mcpsec scan [options]
 
   Options:
-    --live          Connect to running MCP servers and scan live
-    --json          Output results as JSON
-    --sarif         Output results as SARIF 2.1.0 (for GitHub Code Scanning)
-    --path <file>   Scan a specific config file
-    --no-color      Disable colored output
-    --help, -h      Show this help message
-    --version, -v   Show version
+    --live                   Connect to running MCP servers and scan live
+    --json                   Output results as JSON
+    --sarif                  Output results as SARIF 2.1.0 (for GitHub Code Scanning)
+    --path <file>            Scan a specific config file
+    --save-baseline [file]   Save scan results as baseline (default: ${DEFAULT_BASELINE_PATH})
+    --baseline [file]        Compare scan against baseline and show diff
+    --no-color               Disable colored output
+    --help, -h               Show this help message
+    --version, -v            Show version
 
   Examples:
     mcpsec scan
     mcpsec scan --live
     mcpsec scan --json
     mcpsec scan --path ~/.cursor/mcp.json
+    mcpsec scan --save-baseline
+    mcpsec scan --baseline
+    mcpsec scan --baseline --json
 `;
 
 async function main() {
@@ -69,6 +81,23 @@ async function main() {
   const liveMode = args.includes('--live');
   const pathIndex = args.indexOf('--path');
   const specificPath = pathIndex !== -1 ? args[pathIndex + 1] : undefined;
+
+  // Baseline flags
+  const saveBaselineIndex = args.indexOf('--save-baseline');
+  const saveBaselineMode = saveBaselineIndex !== -1;
+  const saveBaselinePath = saveBaselineMode
+    ? (args[saveBaselineIndex + 1] && !args[saveBaselineIndex + 1].startsWith('--')
+        ? args[saveBaselineIndex + 1]
+        : DEFAULT_BASELINE_PATH)
+    : undefined;
+
+  const baselineIndex = args.indexOf('--baseline');
+  const baselineMode = baselineIndex !== -1;
+  const baselinePath = baselineMode
+    ? (args[baselineIndex + 1] && !args[baselineIndex + 1].startsWith('--')
+        ? args[baselineIndex + 1]
+        : DEFAULT_BASELINE_PATH)
+    : undefined;
 
   if (args.includes('--no-color')) {
     // Disable colors by overriding environment
@@ -138,13 +167,59 @@ async function main() {
   // Generate report
   const report = generateReport(configs, allFindings);
 
-  // Output
-  if (sarifOutput) {
-    printReportSARIF(report);
-  } else if (jsonOutput) {
-    printReportJSON(report);
+  // Save baseline if requested
+  if (saveBaselineMode && saveBaselinePath) {
+    saveBaseline(report, saveBaselinePath);
+    if (!jsonOutput && !sarifOutput) {
+      console.log(`\n  Baseline saved to ${saveBaselinePath}\n`);
+    }
+  }
+
+  // Baseline diff if requested
+  if (baselineMode && baselinePath) {
+    try {
+      const baseline = loadBaseline(baselinePath);
+      const diff = diffFindings(allFindings, baseline);
+      diff.scoreDelta = report.score - baseline.score;
+
+      if (jsonOutput) {
+        // JSON output with diff included
+        const safeReport = {
+          ...report,
+          configFiles: report.configFiles.map((c) => ({
+            path: c.path,
+            client: c.client,
+            servers: Object.keys(c.servers),
+          })),
+          diff: {
+            baselineTimestamp: diff.baselineTimestamp,
+            baselineScore: diff.baselineScore,
+            scoreDelta: diff.scoreDelta,
+            new: diff.newFindings,
+            fixed: diff.fixedFindings,
+            unchanged: diff.unchangedFindings.length,
+          },
+        };
+        console.log(JSON.stringify(safeReport, null, 2));
+      } else if (sarifOutput) {
+        printReportSARIF(report);
+      } else {
+        printReport(report);
+        printBaselineDiff(diff, report.score);
+      }
+    } catch (err) {
+      console.error(`Baseline error: ${(err as Error).message}`);
+      process.exit(1);
+    }
   } else {
-    printReport(report);
+    // Normal output (no baseline)
+    if (sarifOutput) {
+      printReportSARIF(report);
+    } else if (jsonOutput) {
+      printReportJSON(report);
+    } else {
+      printReport(report);
+    }
   }
 
   // Exit code based on findings
