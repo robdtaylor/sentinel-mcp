@@ -14,6 +14,22 @@ MCP gives AI agents access to tools, files, databases, and APIs. A single malici
 
 mcpsec finds these problems before attackers do.
 
+## Real-World Results
+
+We tested mcpsec against 10 popular MCP servers (GitHub, Slack, Postgres, Brave Search, Puppeteer, etc.) configured exactly as their official README files recommend.
+
+**Score: 2/100**
+
+| Severity | Findings | Examples |
+|----------|----------|---------|
+| Critical | 3 | GitHub PAT, Slack bot token, and Postgres password in plain text config |
+| High | 1 | API key hardcoded in env block |
+| Medium | 1 | Unverified third-party npm package via `npx -y` |
+
+The only servers that passed clean were ones that don't require credentials (filesystem, memory, sqlite). Every server that needs an API key had it hardcoded in the config file - because that's what the docs tell you to do.
+
+Against deliberately vulnerable MCP server configs (from security research projects), mcpsec found **17 findings** including hardcoded AWS keys, Stripe live keys, SSRF endpoints, and supply chain risks.
+
 ## Quick Start
 
 ```bash
@@ -44,7 +60,7 @@ npx mcpsec scan --baseline --json
 ## Example Output
 
 ```
-  mcpsec - MCP Security Scanner v0.1.0
+  mcpsec - MCP Security Scanner v0.2.1
   ──────────────────────────────────────────────────
 
   Configurations Found
