@@ -184,6 +184,20 @@ mcpsec calculates a 0-100 security score:
     echo "Critical: ${{ steps.mcpsec.outputs.critical }}"
 ```
 
+### SARIF + GitHub Code Scanning
+
+Upload results to GitHub's Security tab:
+
+```yaml
+- name: MCP Security Scan
+  run: npx mcpsec scan --sarif --path mcp-config.json > results.sarif
+
+- name: Upload SARIF
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
 ### CLI in CI
 
 You can also run the CLI directly:
@@ -209,6 +223,7 @@ mcpsec scan [options]
 Options:
   --live          Connect to running MCP servers and scan live
   --json          Output results as JSON
+  --sarif         Output results as SARIF 2.1.0 (for GitHub Code Scanning)
   --path <file>   Scan a specific config file
   --no-color      Disable colored output
   --help, -h      Show help
@@ -223,7 +238,7 @@ git clone https://github.com/robdtaylor/sentinel-mcp.git
 cd sentinel-mcp
 bun install
 
-# Run tests (50 tests)
+# Run tests (64 tests)
 bun test
 
 # Type check
@@ -249,6 +264,7 @@ src/
     tool-scanner.ts         Injection and command injection scanning
     live-scanner.ts         Live server tool/resource/prompt analysis
     report.ts               Score calculation and report output
+    sarif.ts                SARIF 2.1.0 output for GitHub Code Scanning
 ```
 
 ## Roadmap
@@ -257,7 +273,7 @@ src/
 - [x] GitHub Actions action (`uses: robdtaylor/sentinel-mcp@v1`)
 - [ ] MCP server registry scanning
 - [ ] Baseline / diff mode (track changes between scans)
-- [ ] SARIF output format
+- [x] SARIF output format (`--sarif` for GitHub Code Scanning)
 
 ## License
 

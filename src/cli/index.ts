@@ -14,6 +14,7 @@ import { credentialScanner } from '../scanner/credential-scanner';
 import { toolScanner } from '../scanner/tool-scanner';
 import { liveScanner } from '../scanner/live-scanner';
 import { generateReport, printReport, printReportJSON } from '../scanner/report';
+import { printReportSARIF } from '../scanner/sarif';
 import type { Finding, MCPConfigFile } from '../lib/types';
 
 // ============================================================================
@@ -29,6 +30,7 @@ const HELP = `
   Options:
     --live          Connect to running MCP servers and scan live
     --json          Output results as JSON
+    --sarif         Output results as SARIF 2.1.0 (for GitHub Code Scanning)
     --path <file>   Scan a specific config file
     --no-color      Disable colored output
     --help, -h      Show this help message
@@ -63,6 +65,7 @@ async function main() {
 
   // Parse scan options
   const jsonOutput = args.includes('--json');
+  const sarifOutput = args.includes('--sarif');
   const liveMode = args.includes('--live');
   const pathIndex = args.indexOf('--path');
   const specificPath = pathIndex !== -1 ? args[pathIndex + 1] : undefined;
@@ -136,7 +139,9 @@ async function main() {
   const report = generateReport(configs, allFindings);
 
   // Output
-  if (jsonOutput) {
+  if (sarifOutput) {
+    printReportSARIF(report);
+  } else if (jsonOutput) {
     printReportJSON(report);
   } else {
     printReport(report);
