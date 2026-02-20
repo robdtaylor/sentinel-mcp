@@ -12,6 +12,7 @@
 import { discoverConfigs, scanConfigs } from '../scanner/config-scanner';
 import { credentialScanner } from '../scanner/credential-scanner';
 import { toolScanner } from '../scanner/tool-scanner';
+import { liveScanner } from '../scanner/live-scanner';
 import { generateReport, printReport, printReportJSON } from '../scanner/report';
 import type { Finding, MCPConfigFile } from '../lib/types';
 
@@ -26,6 +27,7 @@ const HELP = `
     sentinel-mcp scan [options]
 
   Options:
+    --live          Connect to running MCP servers and scan live
     --json          Output results as JSON
     --path <file>   Scan a specific config file
     --no-color      Disable colored output
@@ -34,6 +36,7 @@ const HELP = `
 
   Examples:
     sentinel-mcp scan
+    sentinel-mcp scan --live
     sentinel-mcp scan --json
     sentinel-mcp scan --path ~/.cursor/mcp.json
 `;
@@ -60,6 +63,7 @@ async function main() {
 
   // Parse scan options
   const jsonOutput = args.includes('--json');
+  const liveMode = args.includes('--live');
   const pathIndex = args.indexOf('--path');
   const specificPath = pathIndex !== -1 ? args[pathIndex + 1] : undefined;
 
@@ -118,6 +122,15 @@ async function main() {
   // Tool/injection scanner
   const toolFindings = await toolScanner.scan(configs);
   allFindings.push(...toolFindings);
+
+  // Live server scanner (connects to running servers)
+  if (liveMode) {
+    if (!jsonOutput) {
+      process.stderr.write('\n\x1b[1m🔴 Live Server Scan\x1b[0m\n');
+    }
+    const liveFindings = await liveScanner.scan(configs);
+    allFindings.push(...liveFindings);
+  }
 
   // Generate report
   const report = generateReport(configs, allFindings);
