@@ -1,12 +1,12 @@
 {
-  "name": "mcpguard",
+  "name": "mcpsec",
   "version": "0.1.0",
   "description": "Security scanner for MCP (Model Context Protocol) servers - detects tool poisoning, credential exposure, prompt injection, and SSRF",
   "license": "MIT",
   "author": "Rob Taylor <robdtaylor@users.noreply.github.com>",
   "type": "module",
   "bin": {
-    "mcpguard": "./src/cli/index.ts"
+    "mcpsec": "./src/cli/index.ts"
   },
   "files": [
     "src/",
@@ -32,7 +32,7 @@
     "ssrf",
     "tool-poisoning",
     "credential-scanner",
-    "mcpguard"
+    "mcpsec"
   ],
   "repository": {
     "type": "git",
