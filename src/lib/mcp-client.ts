@@ -98,6 +98,7 @@ export async function connectStdio(
       stderr: 'pipe',
     });
 
+    const stdin = proc.stdin as import('bun').FileSink;
     const reader = new StdioReader(proc);
     let messageId = 0;
 
@@ -112,8 +113,8 @@ export async function connectStdio(
       };
 
       const line = JSON.stringify(request) + '\n';
-      proc!.stdin.write(line);
-      proc!.stdin.flush();
+      stdin.write(line);
+      stdin.flush();
 
       const response = await reader.waitForResponse(id, REQUEST_TIMEOUT);
       if (response.error) {
@@ -129,8 +130,8 @@ export async function connectStdio(
         method,
         params,
       };
-      proc!.stdin.write(JSON.stringify(notification) + '\n');
-      proc!.stdin.flush();
+      stdin.write(JSON.stringify(notification) + '\n');
+      stdin.flush();
     };
 
     // Step 1: Initialize
@@ -196,7 +197,7 @@ export async function connectStdio(
     // Clean up the process
     if (proc) {
       try {
-        proc.stdin.end();
+        (proc.stdin as import('bun').FileSink).end();
         proc.kill();
       } catch {
         // Process may have already exited
