@@ -49,6 +49,7 @@ export type FindingCategory =
   | 'credential-exposure'
   | 'prompt-injection'
   | 'tool-poisoning'
+  | 'tool-shadowing'
   | 'ssrf'
   | 'command-injection'
   | 'insecure-transport'

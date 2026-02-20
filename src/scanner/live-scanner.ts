@@ -64,6 +64,9 @@ export const liveScanner: Scanner = {
     const findings: Finding[] = [];
     let findingId = 0;
 
+    // Track tools across all servers for cross-server shadowing detection
+    const globalToolRegistry = new Map<string, { server: string; configFile: string; description: string }[]>();
+
     for (const config of configs) {
       for (const [serverName, serverConfig] of Object.entries(config.servers)) {
         // Connect to the server
@@ -100,14 +103,23 @@ export const liveScanner: Scanner = {
           `[${toolCount} tools, ${resourceCount} resources, ${promptCount} prompts]\n`
         );
 
-        // Scan tools
+        // Scan tools and register them globally
         for (const tool of info.tools) {
           const toolFindings = scanTool(tool, serverName, config.path, findingId);
           findingId += toolFindings.length;
           findings.push(...toolFindings);
+
+          // Register tool for cross-server shadowing detection
+          const entry = { server: serverName, configFile: config.path, description: tool.description || '' };
+          const existing = globalToolRegistry.get(tool.name);
+          if (existing) {
+            existing.push(entry);
+          } else {
+            globalToolRegistry.set(tool.name, [entry]);
+          }
         }
 
-        // Scan for tool shadowing across servers
+        // Check for duplicate tool names within this server
         const toolNames = info.tools.map((t) => t.name);
         const duplicateNames = findDuplicateToolNames(toolNames);
         for (const dup of duplicateNames) {
@@ -115,11 +127,11 @@ export const liveScanner: Scanner = {
             id: `LIVE-${++findingId}`,
             severity: 'high',
             category: 'tool-poisoning',
-            title: `Duplicate tool name: "${dup}"`,
-            description: `Server "${serverName}" exposes multiple tools named "${dup}". This may indicate tool shadowing.`,
+            title: `Duplicate tool name within server: "${dup}"`,
+            description: `Server "${serverName}" exposes multiple tools named "${dup}". This is unusual and may indicate a compromised server.`,
             server: serverName,
             configFile: config.path,
-            remediation: 'Investigate why the server has duplicate tool names. This is unusual and may indicate a compromised server.',
+            remediation: 'Investigate why the server has duplicate tool names.',
           });
         }
 
@@ -145,6 +157,10 @@ export const liveScanner: Scanner = {
         }
       }
     }
+
+    // Cross-server tool shadowing detection
+    const shadowFindings = detectCrossServerShadowing(globalToolRegistry, findingId);
+    findings.push(...shadowFindings);
 
     return findings;
   },
@@ -349,6 +365,55 @@ function scanCapabilities(
       configFile,
       evidence: `capabilities.sampling: ${JSON.stringify(capabilities.sampling)}`,
       remediation: 'Verify the server needs sampling capability. This allows the server to influence LLM behavior.',
+    });
+  }
+
+  return findings;
+}
+
+// ============================================================================
+// Cross-Server Tool Shadowing Detection
+// ============================================================================
+
+type ToolRegistryEntry = { server: string; configFile: string; description: string };
+
+export function detectCrossServerShadowing(
+  registry: Map<string, ToolRegistryEntry[]>,
+  startId: number
+): Finding[] {
+  const findings: Finding[] = [];
+  let findingId = startId;
+
+  for (const [toolName, entries] of registry) {
+    // Only flag if the same tool name appears on 2+ different servers
+    const uniqueServers = new Set(entries.map((e) => e.server));
+    if (uniqueServers.size < 2) continue;
+
+    // Determine severity based on description similarity
+    // If descriptions differ significantly, it's more likely a malicious shadow
+    const descriptions = entries.map((e) => e.description);
+    const allSame = descriptions.every((d) => d === descriptions[0]);
+    const severity = allSame ? 'medium' : 'high';
+
+    const serverList = entries.map((e) => `"${e.server}" (${e.configFile})`).join(', ');
+
+    findings.push({
+      id: `LIVE-${++findingId}`,
+      severity,
+      category: 'tool-shadowing',
+      title: `Cross-server tool shadowing: "${toolName}"`,
+      description:
+        `Tool "${toolName}" is exposed by ${uniqueServers.size} servers: ${serverList}. ` +
+        `When multiple servers provide the same tool name, the client may route calls to the wrong server, ` +
+        `allowing a malicious server to intercept operations meant for a legitimate one.`,
+      server: [...uniqueServers].join(', '),
+      configFile: entries[0].configFile,
+      evidence: allSame
+        ? `All servers use identical descriptions.`
+        : `Descriptions differ across servers: ${entries.map((e) => `[${e.server}]: "${truncate(e.description, 60)}"`).join(' vs ')}`,
+      remediation:
+        'Rename conflicting tools or remove the untrusted server. ' +
+        'If both servers are trusted, use tool name prefixing to disambiguate.',
     });
   }
 

@@ -172,7 +172,7 @@ git clone https://github.com/robdtaylor/sentinel-mcp.git
 cd sentinel-mcp
 bun install
 
-# Run tests (42 tests)
+# Run tests (50 tests)
 bun test
 
 # Type check
@@ -202,7 +202,7 @@ src/
 
 ## Roadmap
 
-- [ ] Cross-server tool shadowing detection
+- [x] Cross-server tool shadowing detection
 - [ ] GitHub Actions action (`uses: mcpsec/action@v1`)
 - [ ] MCP server registry scanning
 - [ ] Baseline / diff mode (track changes between scans)
