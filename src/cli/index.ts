@@ -65,7 +65,7 @@ async function main() {
   }
 
   if (command === '--version' || command === '-v') {
-    console.log('mcpsec v0.1.0');
+    console.log('mcpsec v0.2.0');
     process.exit(0);
   }
 
