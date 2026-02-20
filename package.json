@@ -1,12 +1,18 @@
 {
-  "name": "sentinel-mcp",
+  "name": "mcpguard",
   "version": "0.1.0",
-  "description": "Security scanner and gateway for MCP (Model Context Protocol) servers",
+  "description": "Security scanner for MCP (Model Context Protocol) servers - detects tool poisoning, credential exposure, prompt injection, and SSRF",
   "license": "MIT",
+  "author": "Rob Taylor <robdtaylor@users.noreply.github.com>",
   "type": "module",
   "bin": {
-    "sentinel-mcp": "./src/cli/index.ts"
+    "mcpguard": "./src/cli/index.ts"
   },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "scan": "bun run src/cli/index.ts scan",
     "test": "bun test",
@@ -24,11 +30,17 @@
     "ai-security",
     "prompt-injection",
     "ssrf",
-    "tool-poisoning"
+    "tool-poisoning",
+    "credential-scanner",
+    "mcpguard"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sentinel-mcp/sentinel-mcp"
+    "url": "https://github.com/robdtaylor/sentinel-mcp"
+  },
+  "homepage": "https://github.com/robdtaylor/sentinel-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/robdtaylor/sentinel-mcp/issues"
   },
   "engines": {
     "bun": ">=1.0.0"

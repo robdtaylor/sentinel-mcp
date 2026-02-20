@@ -21,10 +21,10 @@ import type { Finding, MCPConfigFile } from '../lib/types';
 // ============================================================================
 
 const HELP = `
-  Sentinel MCP - Security Scanner for Model Context Protocol
+  mcpguard - Security Scanner for Model Context Protocol
 
   Usage:
-    sentinel-mcp scan [options]
+    mcpguard scan [options]
 
   Options:
     --live          Connect to running MCP servers and scan live
@@ -35,10 +35,10 @@ const HELP = `
     --version, -v   Show version
 
   Examples:
-    sentinel-mcp scan
-    sentinel-mcp scan --live
-    sentinel-mcp scan --json
-    sentinel-mcp scan --path ~/.cursor/mcp.json
+    mcpguard scan
+    mcpguard scan --live
+    mcpguard scan --json
+    mcpguard scan --path ~/.cursor/mcp.json
 `;
 
 async function main() {
@@ -51,7 +51,7 @@ async function main() {
   }
 
   if (command === '--version' || command === '-v') {
-    console.log('sentinel-mcp v0.1.0');
+    console.log('mcpguard v0.1.0');
     process.exit(0);
   }
 
