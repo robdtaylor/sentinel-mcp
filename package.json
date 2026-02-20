@@ -1,0 +1,36 @@
+{
+  "name": "sentinel-mcp",
+  "version": "0.1.0",
+  "description": "Security scanner and gateway for MCP (Model Context Protocol) servers",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "sentinel-mcp": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "scan": "bun run src/cli/index.ts scan",
+    "test": "bun test",
+    "typecheck": "bun x tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "scanner",
+    "model-context-protocol",
+    "ai-security",
+    "prompt-injection",
+    "ssrf",
+    "tool-poisoning"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-mcp/sentinel-mcp"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}
