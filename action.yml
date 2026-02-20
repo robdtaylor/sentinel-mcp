@@ -1,0 +1,177 @@
+name: 'mcpsec - MCP Security Scanner'
+description: 'Scan MCP server configurations for security vulnerabilities: tool poisoning, credential exposure, SSRF, prompt injection, and more.'
+author: 'Rob Taylor'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  config-path:
+    description: 'Path to MCP configuration file to scan'
+    required: true
+  fail-on:
+    description: 'Minimum severity to fail the workflow: critical, high, medium, or none'
+    required: false
+    default: 'high'
+
+outputs:
+  score:
+    description: 'Security score (0-100)'
+    value: ${{ steps.scan.outputs.score }}
+  status:
+    description: 'Scan status: pass, warn, or fail'
+    value: ${{ steps.scan.outputs.status }}
+  findings:
+    description: 'Total number of findings'
+    value: ${{ steps.scan.outputs.findings }}
+  critical:
+    description: 'Number of critical findings'
+    value: ${{ steps.scan.outputs.critical }}
+  high:
+    description: 'Number of high findings'
+    value: ${{ steps.scan.outputs.high }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Run mcpsec scan
+      id: scan
+      shell: bash
+      env:
+        INPUT_CONFIG_PATH: ${{ inputs.config-path }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        # Install mcpsec
+        bun install -g mcpsec@latest 2>/dev/null || npm install -g mcpsec@latest
+
+        # Run scan and capture JSON output
+        set +e
+        REPORT=$(mcpsec scan --json --path "$INPUT_CONFIG_PATH" 2>/dev/null)
+        SCAN_EXIT=$?
+        set -e
+
+        # Handle scan failure (not findings-based exit codes)
+        if [ -z "$REPORT" ]; then
+          echo "::error::mcpsec scan failed to produce output. Check config path: $INPUT_CONFIG_PATH"
+          exit 1
+        fi
+
+        # Parse JSON results
+        SCORE=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.score);
+        ")
+        STATUS=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.status);
+        ")
+        TOTAL=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.summary.totalFindings);
+        ")
+        CRITICAL=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.summary.critical);
+        ")
+        HIGH=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.summary.high);
+        ")
+        MEDIUM=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.summary.medium);
+        ")
+        LOW=$(echo "$REPORT" | bun -e "
+          const r = JSON.parse(await Bun.stdin.text());
+          console.log(r.summary.low);
+        ")
+
+        # Set outputs
+        echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        echo "findings=$TOTAL" >> "$GITHUB_OUTPUT"
+        echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+        echo "high=$HIGH" >> "$GITHUB_OUTPUT"
+
+        # Generate Job Summary
+        if [ "$STATUS" = "pass" ]; then
+          STATUS_ICON="✅"
+        elif [ "$STATUS" = "warn" ]; then
+          STATUS_ICON="⚠️"
+        else
+          STATUS_ICON="❌"
+        fi
+
+        {
+          echo "## $STATUS_ICON mcpsec Security Scan"
+          echo ""
+          echo "| Metric | Value |"
+          echo "|--------|-------|"
+          echo "| **Score** | **${SCORE}/100** |"
+          echo "| **Status** | ${STATUS^^} |"
+          echo "| **Config** | \`${INPUT_CONFIG_PATH}\` |"
+          echo ""
+
+          if [ "$TOTAL" -gt 0 ]; then
+            echo "### Findings"
+            echo ""
+            PARTS=""
+            [ "$CRITICAL" -gt 0 ] && PARTS="${PARTS} 🔴 ${CRITICAL} critical"
+            [ "$HIGH" -gt 0 ] && PARTS="${PARTS} 🟠 ${HIGH} high"
+            [ "$MEDIUM" -gt 0 ] && PARTS="${PARTS} 🟡 ${MEDIUM} medium"
+            [ "$LOW" -gt 0 ] && PARTS="${PARTS} 🔵 ${LOW} low"
+            echo "$PARTS"
+            echo ""
+
+            # List individual findings
+            echo "| Severity | Finding | Server |"
+            echo "|----------|---------|--------|"
+            echo "$REPORT" | bun -e "
+              const r = JSON.parse(await Bun.stdin.text());
+              for (const f of r.findings) {
+                const sev = f.severity === 'critical' ? '🔴 CRITICAL'
+                  : f.severity === 'high' ? '🟠 HIGH'
+                  : f.severity === 'medium' ? '🟡 MEDIUM'
+                  : f.severity === 'low' ? '🔵 LOW'
+                  : 'ℹ️ INFO';
+                const server = f.server || '-';
+                const title = f.title.replace(/\|/g, '\\|');
+                console.log('| ' + sev + ' | ' + title + ' | ' + server + ' |');
+              }
+            "
+          else
+            echo "**No security issues found.**"
+          fi
+
+          echo ""
+          echo "---"
+          echo "*Scanned by [mcpsec](https://github.com/robdtaylor/sentinel-mcp)*"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        # Determine exit code based on fail-on threshold
+        SHOULD_FAIL=0
+        case "$INPUT_FAIL_ON" in
+          critical)
+            [ "$CRITICAL" -gt 0 ] && SHOULD_FAIL=1
+            ;;
+          high)
+            [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ] && SHOULD_FAIL=1
+            ;;
+          medium)
+            [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ] || [ "$MEDIUM" -gt 0 ] && SHOULD_FAIL=1
+            ;;
+          none)
+            SHOULD_FAIL=0
+            ;;
+        esac
+
+        if [ "$SHOULD_FAIL" -eq 1 ]; then
+          echo "::error::mcpsec found findings at or above '${INPUT_FAIL_ON}' severity (score: ${SCORE}/100)"
+          exit 1
+        fi

@@ -131,15 +131,66 @@ mcpsec calculates a 0-100 security score:
 
 **Scoring:** Critical = -25, High = -15, Medium = -8, Low = -3, Info = 0
 
-## CI/CD Integration
+## GitHub Actions
 
 ```yaml
-# GitHub Actions
 - name: MCP Security Scan
-  run: npx mcpsec scan --json > mcpsec-report.json
+  uses: robdtaylor/sentinel-mcp@v1
+  with:
+    config-path: path/to/mcp-config.json
+    fail-on: high  # critical, high, medium, or none
+```
 
-# Fail on critical findings (exit code 2)
-# Fail on high findings (exit code 1)
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `config-path` | Yes | - | Path to MCP configuration file |
+| `fail-on` | No | `high` | Minimum severity to fail: `critical`, `high`, `medium`, `none` |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `score` | Security score (0-100) |
+| `status` | `pass`, `warn`, or `fail` |
+| `findings` | Total number of findings |
+| `critical` | Number of critical findings |
+| `high` | Number of high findings |
+
+### Example: Fail only on critical
+
+```yaml
+- name: MCP Security Scan
+  uses: robdtaylor/sentinel-mcp@v1
+  with:
+    config-path: .cursor/mcp.json
+    fail-on: critical
+```
+
+### Example: Use outputs in later steps
+
+```yaml
+- name: MCP Security Scan
+  id: mcpsec
+  uses: robdtaylor/sentinel-mcp@v1
+  with:
+    config-path: mcp-config.json
+    fail-on: none
+
+- name: Check results
+  run: |
+    echo "Score: ${{ steps.mcpsec.outputs.score }}"
+    echo "Critical: ${{ steps.mcpsec.outputs.critical }}"
+```
+
+### CLI in CI
+
+You can also run the CLI directly:
+
+```yaml
+- name: MCP Security Scan
+  run: npx mcpsec scan --json --path mcp-config.json > report.json
 ```
 
 ### Exit Codes
@@ -203,7 +254,7 @@ src/
 ## Roadmap
 
 - [x] Cross-server tool shadowing detection
-- [ ] GitHub Actions action (`uses: mcpsec/action@v1`)
+- [x] GitHub Actions action (`uses: robdtaylor/sentinel-mcp@v1`)
 - [ ] MCP server registry scanning
 - [ ] Baseline / diff mode (track changes between scans)
 - [ ] SARIF output format

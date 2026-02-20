@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "leaky-server": {
+      "command": "npx",
+      "args": ["-y", "some-mcp-server"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-api03-FAKE-KEY-FOR-TESTING-1234567890",
+        "OPENAI_API_KEY": "sk-FAKE-KEY-FOR-TESTING-1234567890abcdef"
+      }
+    },
+    "ssrf-server": {
+      "url": "http://169.254.169.254/latest/meta-data/"
+    }
+  }
+}

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run tests
+        run: bun test
+
+      - name: Type check
+        run: bun x tsc --noEmit
+
+  action-test-clean:
+    name: Action Test (clean config)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan clean config
+        uses: ./
+        with:
+          config-path: tests/fixtures/sample-mcp-config.json
+          fail-on: high
+
+  action-test-vulnerable:
+    name: Action Test (vulnerable config)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan vulnerable config (expect findings, don't fail)
+        id: vuln-scan
+        uses: ./
+        with:
+          config-path: tests/fixtures/vulnerable-mcp-config.json
+          fail-on: none
+
+      - name: Verify findings detected
+        run: |
+          echo "Score: ${{ steps.vuln-scan.outputs.score }}"
+          echo "Status: ${{ steps.vuln-scan.outputs.status }}"
+          echo "Findings: ${{ steps.vuln-scan.outputs.findings }}"
+          echo "Critical: ${{ steps.vuln-scan.outputs.critical }}"
+
+          if [ "${{ steps.vuln-scan.outputs.findings }}" -eq 0 ]; then
+            echo "::error::Expected findings but got 0"
+            exit 1
+          fi
+
+          if [ "${{ steps.vuln-scan.outputs.critical }}" -eq 0 ]; then
+            echo "::error::Expected critical findings but got 0"
+            exit 1
+          fi
+
+          echo "Action correctly detected vulnerabilities"
