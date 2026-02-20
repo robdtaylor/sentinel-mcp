@@ -150,7 +150,7 @@ export function printReport(report: ScanReport): void {
 
   // Header
   console.log();
-  console.log(`${COLORS.bold}${COLORS.cyan}  Sentinel MCP Security Scanner v${VERSION}${COLORS.reset}`);
+  console.log(`${COLORS.bold}${COLORS.cyan}  mcpsec - MCP Security Scanner v${VERSION}${COLORS.reset}`);
   console.log(`${COLORS.dim}  ${'─'.repeat(50)}${COLORS.reset}`);
   console.log();
 
