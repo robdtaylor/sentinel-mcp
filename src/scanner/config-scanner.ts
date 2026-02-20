@@ -193,9 +193,25 @@ export function scanConfigs(configs: MCPConfigFile[]): Finding[] {
       // Check for stdio transport with absolute paths to unknown binaries
       if (server.command) {
         // npx/bunx with unknown packages
-        if (/^(npx|bunx|pnpx)\s/.test(server.command)) {
-          const pkg = server.command.split(/\s+/)[1];
+        // Handle both formats:
+        //   "command": "npx -y some-pkg"  (inline)
+        //   "command": "npx", "args": ["-y", "some-pkg"]  (split)
+        const cmdBase = server.command.split(/\s+/)[0];
+        if (/^(npx|bunx|pnpx)$/.test(cmdBase)) {
+          // Extract package name from inline command or args array
+          let pkg: string | undefined;
+          const inlineParts = server.command.split(/\s+/).slice(1);
+          const allArgs = [...inlineParts, ...(server.args || [])];
+          // Find the first arg that isn't a flag (skip -y, --yes, etc.)
+          for (const arg of allArgs) {
+            if (!arg.startsWith('-')) {
+              pkg = arg;
+              break;
+            }
+          }
+
           if (pkg && !pkg.startsWith('@anthropic') && !pkg.startsWith('@modelcontextprotocol')) {
+            const fullCommand = [server.command, ...(server.args || [])].join(' ');
             findings.push({
               id: `CFG-${++findingId}`,
               severity: 'medium',
@@ -204,7 +220,7 @@ export function scanConfigs(configs: MCPConfigFile[]): Finding[] {
               description: `Server "${serverName}" uses npx/bunx to run "${pkg}". This package is downloaded and executed at runtime without integrity verification.`,
               server: serverName,
               configFile: config.path,
-              evidence: `command: ${server.command}`,
+              evidence: `command: ${fullCommand}`,
               remediation: 'Pin the package version and verify its integrity. Consider installing locally instead of using npx.',
             });
           }
