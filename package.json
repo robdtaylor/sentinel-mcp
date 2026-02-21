@@ -1,6 +1,6 @@
 {
   "name": "mcpsec",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Security scanner for MCP (Model Context Protocol) servers - detects tool poisoning, credential exposure, prompt injection, and SSRF",
   "license": "MIT",
   "author": "Rob Taylor <robdtaylor@users.noreply.github.com>",

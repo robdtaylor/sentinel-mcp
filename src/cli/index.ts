@@ -13,6 +13,7 @@ import { discoverConfigs, scanConfigs } from '../scanner/config-scanner';
 import { credentialScanner } from '../scanner/credential-scanner';
 import { toolScanner } from '../scanner/tool-scanner';
 import { liveScanner } from '../scanner/live-scanner';
+import { registryScanner } from '../scanner/registry-scanner';
 import { generateReport, printReport, printReportJSON } from '../scanner/report';
 import { printReportSARIF } from '../scanner/sarif';
 import {
@@ -39,6 +40,10 @@ const HELP = `
     --json                   Output results as JSON
     --sarif                  Output results as SARIF 2.1.0 (for GitHub Code Scanning)
     --path <file>            Scan a specific config file
+    --registry               Scan servers from the official MCP registry
+    --limit <n>              Max servers to fetch from registry (default: 20)
+    --search <query>         Search registry servers by keyword
+    --server <name>          Scan a specific registry server by name
     --save-baseline [file]   Save scan results as baseline (default: ${DEFAULT_BASELINE_PATH})
     --baseline [file]        Compare scan against baseline and show diff
     --no-color               Disable colored output
@@ -50,6 +55,11 @@ const HELP = `
     mcpsec scan --live
     mcpsec scan --json
     mcpsec scan --path ~/.cursor/mcp.json
+    mcpsec scan --registry
+    mcpsec scan --registry --limit 50
+    mcpsec scan --registry --search "database"
+    mcpsec scan --registry --server "filesystem"
+    mcpsec scan --registry --json
     mcpsec scan --save-baseline
     mcpsec scan --baseline
     mcpsec scan --baseline --json
@@ -65,7 +75,7 @@ async function main() {
   }
 
   if (command === '--version' || command === '-v') {
-    console.log('mcpsec v0.2.0');
+    console.log('mcpsec v0.3.0');
     process.exit(0);
   }
 
@@ -81,6 +91,15 @@ async function main() {
   const liveMode = args.includes('--live');
   const pathIndex = args.indexOf('--path');
   const specificPath = pathIndex !== -1 ? args[pathIndex + 1] : undefined;
+
+  // Registry flags
+  const registryMode = args.includes('--registry');
+  const limitIndex = args.indexOf('--limit');
+  const registryLimit = limitIndex !== -1 ? parseInt(args[limitIndex + 1], 10) || 20 : 20;
+  const searchIndex = args.indexOf('--search');
+  const registrySearch = searchIndex !== -1 ? args[searchIndex + 1] : undefined;
+  const serverIndex = args.indexOf('--server');
+  const registryServer = serverIndex !== -1 ? args[serverIndex + 1] : undefined;
 
   // Baseline flags
   const saveBaselineIndex = args.indexOf('--save-baseline');
@@ -106,8 +125,45 @@ async function main() {
 
   // Discover configs
   let configs: MCPConfigFile[];
+  const allFindings: Finding[] = [];
 
-  if (specificPath) {
+  if (registryMode) {
+    // Registry scanning mode
+    if (!jsonOutput && !sarifOutput) {
+      const label = registryServer
+        ? `server "${registryServer}"`
+        : registrySearch
+          ? `"${registrySearch}" (limit: ${registryLimit})`
+          : `top ${registryLimit} servers`;
+      process.stderr.write(`\n\x1b[1m🌐 Registry Scan: ${label}\x1b[0m\n`);
+      process.stderr.write(`\x1b[2m   Fetching from registry.modelcontextprotocol.io...\x1b[0m\n`);
+    }
+
+    try {
+      const result = await registryScanner.scanRegistry({
+        limit: registryLimit,
+        search: registrySearch,
+        server: registryServer,
+      });
+
+      configs = result.configs;
+      allFindings.push(...result.findings);
+
+      if (configs.length === 0) {
+        if (!jsonOutput && !sarifOutput) {
+          console.error('  No servers found matching your criteria.');
+        }
+        process.exit(0);
+      }
+
+      if (!jsonOutput && !sarifOutput) {
+        process.stderr.write(`\x1b[2m   Found ${configs.length} server(s), running security analysis...\x1b[0m\n`);
+      }
+    } catch (err) {
+      console.error(`Registry fetch failed: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  } else if (specificPath) {
     // Scan a specific file
     const { existsSync, readFileSync } = await import('fs');
     if (!existsSync(specificPath)) {
@@ -140,23 +196,18 @@ async function main() {
     configs = discoverConfigs();
   }
 
-  // Run all scanners
-  const allFindings: Finding[] = [];
-
-  // Config-level checks
+  // Run standard scanners (config, credential, tool)
   const configFindings = scanConfigs(configs);
   allFindings.push(...configFindings);
 
-  // Credential scanner
   const credFindings = await credentialScanner.scan(configs);
   allFindings.push(...credFindings);
 
-  // Tool/injection scanner
   const toolFindings = await toolScanner.scan(configs);
   allFindings.push(...toolFindings);
 
-  // Live server scanner (connects to running servers)
-  if (liveMode) {
+  // Live server scanner (connects to running servers -- not used in registry mode)
+  if (liveMode && !registryMode) {
     if (!jsonOutput) {
       process.stderr.write('\n\x1b[1m🔴 Live Server Scan\x1b[0m\n');
     }

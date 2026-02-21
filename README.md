@@ -60,7 +60,7 @@ npx mcpsec scan --baseline --json
 ## Example Output
 
 ```
-  mcpsec - MCP Security Scanner v0.2.1
+  mcpsec - MCP Security Scanner v0.3.0
   ──────────────────────────────────────────────────
 
   Configurations Found
@@ -100,6 +100,41 @@ npx mcpsec scan --baseline --json
   Package installed via npx without version pinning
   Fix: Pin to a specific version: npx package@1.2.3
 ```
+
+## Registry Scanning
+
+Scan MCP servers directly from the official [MCP Registry](https://registry.modelcontextprotocol.io/) to assess their security before installing them.
+
+```bash
+# Scan top servers from the registry
+npx mcpsec scan --registry
+
+# Limit number of servers
+npx mcpsec scan --registry --limit 50
+
+# Search for servers by keyword
+npx mcpsec scan --registry --search "database"
+
+# Scan a specific server by name
+npx mcpsec scan --registry --server "filesystem"
+
+# Combine with output formats
+npx mcpsec scan --registry --json
+npx mcpsec scan --registry --sarif
+```
+
+### Registry-Specific Checks
+
+In addition to running the standard static analysis pipeline, registry mode performs supply-chain checks against npm:
+
+| Check | Category | Severity |
+|-------|----------|----------|
+| Package not found on npm | Supply Chain | High |
+| Package < 1 week old | Supply Chain | Medium |
+| Package < 100 weekly downloads | Supply Chain | Low |
+| Single maintainer on npm | Supply Chain | Info |
+| No repository URL in registry entry | Supply Chain | Low |
+| Repository URL returns 404 | Supply Chain | Medium |
 
 ## What It Detects
 
@@ -250,6 +285,10 @@ Options:
   --json                   Output results as JSON
   --sarif                  Output results as SARIF 2.1.0 (for GitHub Code Scanning)
   --path <file>            Scan a specific config file
+  --registry               Scan servers from the official MCP registry
+  --limit <n>              Max servers to fetch from registry (default: 20)
+  --search <query>         Search registry servers by keyword
+  --server <name>          Scan a specific registry server by name
   --save-baseline [file]   Save scan results as baseline (default: .mcpsec-baseline.json)
   --baseline [file]        Compare scan against baseline and show diff
   --no-color               Disable colored output
@@ -285,11 +324,13 @@ src/
     injection-patterns.ts   Prompt injection / tool poisoning patterns
     url-validator.ts        SSRF detection (cloud metadata, private IPs)
     mcp-client.ts           MCP protocol client (stdio + HTTP)
+    registry-client.ts      MCP registry + npm API client
   scanner/
     config-scanner.ts       Config-level checks (transport, docker, supply chain)
     credential-scanner.ts   API key and credential detection
     tool-scanner.ts         Injection and command injection scanning
     live-scanner.ts         Live server tool/resource/prompt analysis
+    registry-scanner.ts     Registry supply-chain checks (npm age, downloads)
     report.ts               Score calculation and report output
     sarif.ts                SARIF 2.1.0 output for GitHub Code Scanning
     baseline.ts             Baseline save/load and diff engine
@@ -299,7 +340,7 @@ src/
 
 - [x] Cross-server tool shadowing detection
 - [x] GitHub Actions action (`uses: robdtaylor/sentinel-mcp@v1`)
-- [ ] MCP server registry scanning
+- [x] MCP server registry scanning
 - [x] Baseline / diff mode (track changes between scans)
 - [x] SARIF output format (`--sarif` for GitHub Code Scanning)
 
